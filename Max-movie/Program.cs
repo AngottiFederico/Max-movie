@@ -10,6 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
+// 1. Agregamos los servicios de Swagger (La interfaz de pruebas)
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 //Incluir DbContext
 builder.Services.AddDbContext<MovieDbContext>(options =>
@@ -86,15 +89,16 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-
 app.UseAuthorization();
 
-app.MapStaticAssets();
+// 2. Activamos la interfaz visual de Swagger solo cuando estamos desarrollando
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}")
-    .WithStaticAssets();
-
+// 3. Le decimos a .NET que ahora las rutas se definen dentro de cada controlador (Web API)
+app.MapControllers();
 
 app.Run();

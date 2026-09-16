@@ -1,14 +1,15 @@
-
 using Max_movie.Data;
+using Max_movie.DTOs;
 using Max_movie.Models;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+
 namespace Max_movie.Controllers;
 
-
-[Authorize(Roles = "Admin")]
-public class GeneroController : Controller
+// [Authorize(Roles = "Admin")] // Apagado temporalmente para probar en Swagger
+[Route("api/[controller]")]
+[ApiController]
+public class GeneroController : ControllerBase
 {
     private readonly MovieDbContext _context;
 
@@ -17,137 +18,93 @@ public class GeneroController : Controller
         _context = context;
     }
 
-    // GET: GENEROS
-    public async Task<IActionResult> Index()    
+    // GET: api/Genero
+    [HttpGet]
+    public async Task<IActionResult> GetGeneros()
     {
-        return View(await _context.Generos.ToListAsync());
+        var generos = await _context.Generos.ToListAsync();
+
+        // MAPEO: Convertimos la lista de Entidades a una lista de DTOs
+        var generoDTO = generos.Select(g => new GeneroDTO
+        {
+            Id = g.Id,
+            Descripcion = g.Descripcion
+        }).ToList();
+
+        return Ok(generoDTO);
     }
 
-    // GET: GENEROS/Details/5
-    public async Task<IActionResult> Details(int? id)
-    {
-        if (id == null)
-        {
-            return NotFound();
-        }
-
-        var genero = await _context.Generos
-            .FirstOrDefaultAsync(m => m.Id == id);
-        if (genero == null)
-        {
-            return NotFound();
-        }
-
-        return View(genero);
-    }
-
-    // GET: GENEROS/Create
-    public IActionResult Create()
-    {
-        return View();
-    }
-
-    // POST: GENEROS/Create
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("Id,Descripcion,PeliculasGenero")] Genero genero)
-    {
-        if (ModelState.IsValid)
-        {
-            _context.Add(genero);
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
-        }
-        return View(genero);
-    }
-
-    // GET: GENEROS/Edit/5
-    public async Task<IActionResult> Edit(int? id)
-    {
-        if (id == null)
-        {
-            return NotFound();
-        }
-
-        var genero = await _context.Generos.FindAsync(id);
-        if (genero == null)
-        {
-            return NotFound();
-        }
-        return View(genero);
-    }
-
-    // POST: GENEROS/Edit/5
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int? id, [Bind("Id,Descripcion,PeliculasGenero")] Genero genero)
-    {
-        if (id != genero.Id)
-        {
-            return NotFound();
-        }
-
-        if (ModelState.IsValid)
-        {
-            try
-            {
-                _context.Update(genero);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!GeneroExists(genero.Id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-            return RedirectToAction(nameof(Index));
-        }
-        return View(genero);
-    }
-
-    // GET: GENEROS/Delete/5
-    public async Task<IActionResult> Delete(int? id)
-    {
-        if (id == null)
-        {
-            return NotFound();
-        }
-
-        var genero = await _context.Generos
-            .FirstOrDefaultAsync(m => m.Id == id);
-        if (genero == null)
-        {
-            return NotFound();
-        }
-
-        return View(genero);
-    }
-
-    // POST: GENEROS/Delete/5
-    [HttpPost, ActionName("Delete")]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteConfirmed(int? id)
+    // GET: api/Genero/5
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetGenero(int id)
     {
         var genero = await _context.Generos.FindAsync(id);
-        if (genero != null)
+
+        if (genero == null)
+            return NotFound();
+
+        // MAPEO: Convertimos la Entidad encontrada a DTO
+        var generoDTO = new GeneroDTO
         {
-            _context.Generos.Remove(genero);
-        }
+            Id = genero.Id,
+            Descripcion = genero.Descripcion
+        };
+
+        return Ok(generoDTO);
+    }
+
+    // POST: api/Genero
+    [HttpPost]
+    public async Task<IActionResult> PostGenero(GeneroDTO generoDTO)
+    {
+        // MAPEO INVERSO: Convertimos el DTO a Entidad para la Base de Datos
+        var nuevoGenero = new Genero
+        {
+            // No pasamos el Id porque la base de datos lo crea solo
+            Descripcion = generoDTO.Descripcion
+        };
+
+        _context.Generos.Add(nuevoGenero);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetGenero), new { id = nuevoGenero.Id }, generoDTO);
+    }
+
+    // PUT: api/Genero/5
+    [HttpPut("{id}")]
+    public async Task<IActionResult> PutGenero(int id, GeneroDTO generoDTO)
+    {
+        if (id != generoDTO.Id)       
+            return BadRequest(); // Status 400: El ID de la URL no coincide con el del objeto
+
+        var generoExiste = await _context.Generos.FindAsync(id);
+        if (generoExiste == null) return NotFound();
+
+        // MAPEO: Actualizamos la entidad real con los datos que vinieron en el DTO
+        generoExiste.Descripcion = generoDTO.Descripcion;
 
         await _context.SaveChangesAsync();
-        return RedirectToAction(nameof(Index));
+
+        return NoContent(); // Status 204: Editado con éxito
     }
 
-    private bool GeneroExists(int? id)
+    // DELETE: api/Genero/5
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteGenero(int id)
+    {
+        var genero = await _context.Generos.FindAsync(id);
+        if (genero == null)
+        {
+            return NotFound();
+        }
+
+        _context.Generos.Remove(genero);
+        await _context.SaveChangesAsync();
+
+        return NoContent(); // Status 204: Borrado con éxito
+    }
+
+    private bool GeneroExists(int id)
     {
         return _context.Generos.Any(e => e.Id == id);
     }

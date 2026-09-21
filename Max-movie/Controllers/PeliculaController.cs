@@ -1,6 +1,7 @@
 
 using Max_movie.Data;
 using Max_movie.Models;
+using Max_movie.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -9,8 +10,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Max_movie.Controllers
 {
 
-    [Authorize(Roles = "Admin")]
-    public class PeliculaController : Controller
+    // [Authorize(Roles = "Admin")] //
+    [Route("api/[controller]")]
+    [ApiController]
+    public class PeliculaController : ControllerBase
     {
         private readonly MovieDbContext _context;
 
@@ -19,145 +22,115 @@ namespace Max_movie.Controllers
             _context = context;
         }
 
-        // GET: PELICULAS
-        public async Task<IActionResult> Index()
+        // GET: api/Pelicula
+        [HttpGet]
+        public async Task<IActionResult> GetPeliculas()
         {
-            var peliculas = _context.Peliculas
-            .Include(p => p.Genero)
-            .Include(p => p.Plataforma);
+            var peliculas = await _context.Peliculas.ToListAsync();
 
-            return View(await peliculas.ToListAsync());
+            // MAPEO: Lista de Entidades a Lista de DTOs
+            var peliculasDTO = peliculas.Select(p => new PeliculaDTO
+            {
+                Id = p.Id,
+                Titulo = p.Titulo,
+                FechaLanzamiento = p.FechaLanzamiento,
+                MinutosDuracion = p.MinutosDuracion,
+                Sinopsis = p.Sinopsis,
+                PosterUrlPortada = p.PosterUrlPortada,
+                PromedioRating = p.PromedioRating,
+                GeneroId = p.GeneroId,
+                PlataformaId = p.PlataformaId
+            }).ToList();
+
+            return Ok(peliculasDTO);
         }
 
-        // GET: PELICULAS/Details/5
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var pelicula = await _context.Peliculas
-                .Include(p => p.Genero)
-                .Include(p => p.Plataforma)
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (pelicula == null)
-            {
-                return NotFound();
-            }
-
-            return View(pelicula);
-        }
-
-        // GET: PELICULAS/Create
-        public IActionResult Create()
-        {
-            ViewBag.GeneroId = new SelectList(_context.Generos, "Id", "Descripcion");
-            ViewBag.PlataformaId = new SelectList(_context.Plataformas, "Id", "Nombre");
-
-            return View();
-        }
-
-        // POST: PELICULAS/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Titulo,FechaLanzamiento,MinutosDuracion,Sinopsis,PosterUrlPortada,PromedioRating,GeneroId,Genero,PlataformaId,Plataforma,ListaReviews,UsuariosFavorito")] Pelicula pelicula)
-        {
-            if (ModelState.IsValid)
-            {
-                _context.Add(pelicula);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            return View(pelicula);
-        }
-
-        // GET: PELICULAS/Edit/5
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var pelicula = await _context.Peliculas.FindAsync(id);
-            if (pelicula == null)
-            {
-                return NotFound();
-            }
-            return View(pelicula);
-        }
-
-        // POST: PELICULAS/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int? id, [Bind("Id,Titulo,FechaLanzamiento,MinutosDuracion,Sinopsis,PosterUrlPortada,PromedioRating,GeneroId,Genero,PlataformaId,Plataforma,ListaReviews,UsuariosFavorito")] Pelicula pelicula)
-        {
-            if (id != pelicula.Id)
-            {
-                return NotFound();
-            }
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    _context.Update(pelicula);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!PeliculaExists(pelicula.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(pelicula);
-        }
-
-        // GET: PELICULAS/Delete/5
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var pelicula = await _context.Peliculas
-                .Include(p => p.Genero)
-                .Include(p => p.Plataforma)
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (pelicula == null)
-            {
-                return NotFound();
-            }
-
-            return View(pelicula);
-        }
-
-        // POST: PELICULAS/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int? id)
+        // GET: api/Pelicula/5
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetPelicula(int id)
         {
             var pelicula = await _context.Peliculas.FindAsync(id);
-            if (pelicula != null)
+
+            if (pelicula == null) return NotFound();
+
+            // MAPEO: Entidad a DTO
+            var peliculaDTO = new PeliculaDTO
             {
-                _context.Peliculas.Remove(pelicula);
-            }
+                Id = pelicula.Id,
+                Titulo = pelicula.Titulo,
+                FechaLanzamiento = pelicula.FechaLanzamiento,
+                MinutosDuracion = pelicula.MinutosDuracion,
+                Sinopsis = pelicula.Sinopsis,
+                PosterUrlPortada = pelicula.PosterUrlPortada,
+                PromedioRating = pelicula.PromedioRating,
+                GeneroId = pelicula.GeneroId,
+                PlataformaId = pelicula.PlataformaId
+            };
+
+            return Ok(peliculaDTO);
+        }
+
+        // POST: api/Pelicula
+        [HttpPost]
+        public async Task<IActionResult> PostPelicula(PeliculaDTO peliculaDTO)
+        {
+            // MAPEO INVERSO: DTO a Entidad
+            var nuevaPelicula = new Pelicula
+            {
+                Titulo = peliculaDTO.Titulo,
+                FechaLanzamiento = peliculaDTO.FechaLanzamiento,
+                MinutosDuracion = peliculaDTO.MinutosDuracion,
+                Sinopsis = peliculaDTO.Sinopsis,
+                PosterUrlPortada = peliculaDTO.PosterUrlPortada,
+                PromedioRating = peliculaDTO.PromedioRating,
+                GeneroId = peliculaDTO.GeneroId,
+                PlataformaId = peliculaDTO.PlataformaId
+            };
+
+            _context.Peliculas.Add(nuevaPelicula);
+            await _context.SaveChangesAsync();
+
+            // Actualizamos el ID del DTO (¡como aprendimos con Género!)
+            peliculaDTO.Id = nuevaPelicula.Id;
+
+            return CreatedAtAction(nameof(GetPelicula), new { id = nuevaPelicula.Id }, peliculaDTO);
+        }
+
+        // PUT: api/Pelicula/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutPelicula(int id, PeliculaDTO peliculaDTO)
+        {
+            if (id != peliculaDTO.Id) return BadRequest();
+
+            var peliculaExiste = await _context.Peliculas.FindAsync(id);
+            if (peliculaExiste == null) return NotFound();
+
+            // MAPEO: Actualizamos los campos
+            peliculaExiste.Titulo = peliculaDTO.Titulo;
+            peliculaExiste.FechaLanzamiento = peliculaDTO.FechaLanzamiento;
+            peliculaExiste.MinutosDuracion = peliculaDTO.MinutosDuracion;
+            peliculaExiste.Sinopsis = peliculaDTO.Sinopsis;
+            peliculaExiste.PosterUrlPortada = peliculaDTO.PosterUrlPortada;
+            peliculaExiste.PromedioRating = peliculaDTO.PromedioRating;
+            peliculaExiste.GeneroId = peliculaDTO.GeneroId;
+            peliculaExiste.PlataformaId = peliculaDTO.PlataformaId;
 
             await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+
+            return NoContent();
+        }
+
+        // DELETE: api/Pelicula/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePelicula(int id)
+        {
+            var pelicula = await _context.Peliculas.FindAsync(id);
+            if (pelicula == null) return NotFound();
+
+            _context.Peliculas.Remove(pelicula);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
         private bool PeliculaExists(int? id)

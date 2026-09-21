@@ -67,6 +67,9 @@ public class GeneroController : ControllerBase
         _context.Generos.Add(nuevoGenero);
         await _context.SaveChangesAsync();
 
+        // Le asignamos el ID recién creado al DTO para devolverlo
+        generoDTO.Id = nuevoGenero.Id;
+
         return CreatedAtAction(nameof(GetGenero), new { id = nuevoGenero.Id }, generoDTO);
     }
 

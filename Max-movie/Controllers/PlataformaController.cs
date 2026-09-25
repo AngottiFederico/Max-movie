@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Max_movie.Controllers;
 
 
-//[Authorize(Roles = "Admin")]
+
 [Route("api/[controller]")]
 [ApiController]
 public class PlataformaController : ControllerBase
@@ -21,6 +21,7 @@ public class PlataformaController : ControllerBase
 
     // GET: api/Plataforma
     [HttpGet]
+    [AllowAnonymous]
     public async Task<ActionResult> GetPlataformas()
     {
         var plataformas = await _context.Plataformas.ToListAsync();
@@ -38,6 +39,7 @@ public class PlataformaController : ControllerBase
 
     // GET: api/Plataforma/5
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<ActionResult> GetPlataforma(int id)
     {
         var plataforma = await _context.Plataformas.FindAsync(id);
@@ -62,6 +64,7 @@ public class PlataformaController : ControllerBase
 
     // POST: api/Plataforma
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> PostPlataforma(PlataformaDTO plataformaDto)
     {
         // MAPEO INVERSO: Convertimos el DTO a Entidad para la Base de Datos
@@ -87,6 +90,7 @@ public class PlataformaController : ControllerBase
 
     // PUT: api/Plataforma/5
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> PutPlataforma(int id, PlataformaDTO plataformaDto)
     {
         if (id != plataformaDto.Id)
@@ -109,6 +113,7 @@ public class PlataformaController : ControllerBase
 
     // DELETE: api/Plataforma/5
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeletePlataforma(int id)
     {
         var plataforma = await _context.Plataformas.FindAsync(id);

@@ -1,63 +1,90 @@
 using Max_movie.Data;
 using Max_movie.Models;
 using Max_movie.Service;
+// NUEVOS USINGS PARA JWT Y SWAGGER
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddControllers();
-
-// 1. Agregamos los servicios de Swagger (La interfaz de pruebas)
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-//Incluir DbContext
+//Configuración de CORS (Cross-Origin Resource Sharing)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("PermitirReact", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
+// 1. CONFIGURACIÓN DE SWAGGER PARA JWT
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Pegá únicamente tu token JWT. Swagger agrega la palabra Bearer automáticamente."
+    });
+
+    // Conectamos el filtro que tenés al final del archivo para que actúe sobre los [Authorize]
+    c.OperationFilter<AuthResponsesOperationFilter>();
+});
+
 builder.Services.AddDbContext<MovieDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("MovieDbContext")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MovieDbContext")));
 
-// add identity core con roles y signInManager
+// 2. IDENTITY CORE (Sin las cookies viejas)
 builder.Services.AddIdentityCore<Usuario>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequiredLength = 3;
     options.Password.RequireUppercase = false;
-}
-)
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<MovieDbContext>()
-    .AddSignInManager();
-
-//Manejo de la cookie. Lo ponemos en default, pero hay que ponerlo.
-builder.Services.AddAuthentication(opt =>
-{
-    opt.DefaultScheme = IdentityConstants.ApplicationScheme;
 })
-    .AddIdentityCookies();
+.AddRoles<IdentityRole>()
+.AddEntityFrameworkStores<MovieDbContext>()
+.AddSignInManager();
 
-builder.Services.ConfigureApplicationCookie(o =>
-{
-    o.ExpireTimeSpan = TimeSpan.FromMinutes(60);
-    o.SlidingExpiration = true;
-    o.LoginPath = "/Usuario/Login";
-    o.AccessDeniedPath = "/Usuario/AccessDenied";
-});
+// 3. NUEVO MOTOR DE SEGURIDAD: JWT BEARER
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        };
+    });
 
-//Servicio de archivos de imagenes
 builder.Services.AddScoped<ImagenStorage>();
-builder.Services.Configure<FormOptions>(o => {o.MultipartBodyLengthLimit = 2 * 1024 * 1024;});
+builder.Services.Configure<FormOptions>(o => { o.MultipartBodyLengthLimit = 2 * 1024 * 1024; });
 
-//Servicio de envio de correos
 builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 var app = builder.Build();
 
-// invocar la ejecucion del dbseeder con un scope
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -67,38 +94,56 @@ using (var scope = app.Services.CreateScope())
         var userManager = services.GetRequiredService<UserManager<Usuario>>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
 
-        // Le agregamos el await porque tu método Seed ahora es asíncrono
         await DbSeeder.Seed(context, userManager, roleManager);
-
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred seeding the DB.");
-
     }
 }
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 app.UseRouting();
+
+app.UseCors("PermitirReact");
+
+// 4. CRÍTICO: Authentication (Saber quién sos) SIEMPRE va antes de Authorization (Saber qué podés hacer)
+app.UseAuthentication();
 app.UseAuthorization();
 
-// 2. Activamos la interfaz visual de Swagger solo cuando estamos desarrollando
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// 3. Le decimos a .NET que ahora las rutas se definen dentro de cada controlador (Web API)
 app.MapControllers();
-
 app.Run();
+
+
+public class AuthResponsesOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        var hasAuthorize = context.MethodInfo.DeclaringType?.GetCustomAttributes(true).OfType<AuthorizeAttribute>().Any() == true ||
+                           context.MethodInfo.GetCustomAttributes(true).OfType<AuthorizeAttribute>().Any();
+
+        if (hasAuthorize)
+        {
+            operation.Security = new List<OpenApiSecurityRequirement>
+            {
+                new OpenApiSecurityRequirement
+                {
+                    { new OpenApiSecuritySchemeReference("Bearer", context.Document), new List<string>() }
+                }
+            };
+        }
+    }
+}

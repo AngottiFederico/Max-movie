@@ -1,12 +1,12 @@
 using Max_movie.Data;
 using Max_movie.DTOs;
 using Max_movie.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Max_movie.Controllers;
 
-// [Authorize(Roles = "Admin")] // Apagado temporalmente para probar en Swagger
 [Route("api/[controller]")]
 [ApiController]
 public class GeneroController : ControllerBase
@@ -20,6 +20,7 @@ public class GeneroController : ControllerBase
 
     // GET: api/Genero
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetGeneros()
     {
         var generos = await _context.Generos.ToListAsync();
@@ -36,6 +37,7 @@ public class GeneroController : ControllerBase
 
     // GET: api/Genero/5
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetGenero(int id)
     {
         var genero = await _context.Generos.FindAsync(id);
@@ -55,6 +57,7 @@ public class GeneroController : ControllerBase
 
     // POST: api/Genero
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> PostGenero(GeneroDTO generoDTO)
     {
         // MAPEO INVERSO: Convertimos el DTO a Entidad para la Base de Datos
@@ -75,6 +78,7 @@ public class GeneroController : ControllerBase
 
     // PUT: api/Genero/5
     [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> PutGenero(int id, GeneroDTO generoDTO)
     {
         if (id != generoDTO.Id)       
@@ -93,6 +97,7 @@ public class GeneroController : ControllerBase
 
     // DELETE: api/Genero/5
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteGenero(int id)
     {
         var genero = await _context.Generos.FindAsync(id);

@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 namespace Max_movie.Controllers
 {
 
-    // [Authorize(Roles = "Admin")] //
     [Route("api/[controller]")]
     [ApiController]
     public class PeliculaController : ControllerBase
@@ -24,6 +23,7 @@ namespace Max_movie.Controllers
 
         // GET: api/Pelicula
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetPeliculas()
         {
             var peliculas = await _context.Peliculas.ToListAsync();
@@ -47,6 +47,7 @@ namespace Max_movie.Controllers
 
         // GET: api/Pelicula/5
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetPelicula(int id)
         {
             var pelicula = await _context.Peliculas.FindAsync(id);
@@ -72,6 +73,7 @@ namespace Max_movie.Controllers
 
         // POST: api/Pelicula
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> PostPelicula(PeliculaDTO peliculaDTO)
         {
             // MAPEO INVERSO: DTO a Entidad
@@ -98,6 +100,7 @@ namespace Max_movie.Controllers
 
         // PUT: api/Pelicula/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> PutPelicula(int id, PeliculaDTO peliculaDTO)
         {
             if (id != peliculaDTO.Id) return BadRequest();
@@ -122,6 +125,7 @@ namespace Max_movie.Controllers
 
         // DELETE: api/Pelicula/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeletePelicula(int id)
         {
             var pelicula = await _context.Peliculas.FindAsync(id);
